@@ -4,7 +4,7 @@ import hashlib
 import json
 
 from app.schemas.book import Book, BookCreate, BookPatch, BookUpdate
-from app.services.book_service import book_service
+from app.database import get_connection
 
 router = APIRouter(prefix="/books", tags=["books"])
 
@@ -20,7 +20,6 @@ def _build_etag(books: list[Book]) -> str:
 
 @router.post(
     "",
-    response_model=Book,
     status_code=status.HTTP_201_CREATED,
     responses={
         201: {"description": "Book created"},
@@ -28,9 +27,13 @@ def _build_etag(books: list[Book]) -> str:
         500: SERVER_ERROR,
     },
 )
-def create_book(data: BookCreate) -> Book:
-    return book_service.create(data)
-
+def create_book(data: BookCreate) -> Response:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO books (title, author, year) VALUES (%s, %s, %s)",
+            (data.title, data.author, data.year),
+        )
+    return Response(status_code=status.HTTP_201_CREATED)
 
 @router.get(
     "",
@@ -42,7 +45,9 @@ def create_book(data: BookCreate) -> Book:
     },
 )
 def list_books(request: Request, response: Response) -> list[Book] | Response:
-    books = book_service.list_all()
+    with get_connection() as conn:
+        rows = conn.execute("SELECT * FROM books").fetchall()
+    books = [Book(**row) for row in rows]
     etag = _build_etag(books)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
@@ -72,10 +77,11 @@ def search_books() -> None:
     },
 )
 def get_book(book_id: int) -> Book:
-    book = book_service.get(book_id)
-    if book is None:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM books WHERE id = %s", (book_id,)).fetchone()
+    if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Book not found")
-    return book
+    return Book(**row)
 
 
 @router.patch(
@@ -89,12 +95,20 @@ def get_book(book_id: int) -> Book:
     },
 )
 def patch_book(book_id: int, data: BookPatch) -> Book:
-    book = book_service.get(book_id)
-    if book is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Book not found")
-    merged = {**book.model_dump(exclude={"id"}), **data.model_dump(exclude_none=True)}
-    return book_service.update(book_id, BookUpdate(**merged))
-
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM books WHERE id = %s", (book_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Book not found")
+        book = Book(**{**row, **data.model_dump(exclude_none=True)})
+        conn.execute(
+            """
+            UPDATE books
+            SET title = %s, author = %s, year = %s
+            WHERE id = %s
+            """,
+            (book.title, book.author, book.year, book_id),
+        )
+    return book
 
 @router.delete(
     "/{book_id}",
@@ -107,6 +121,8 @@ def patch_book(book_id: int, data: BookPatch) -> Book:
     },
 )
 def delete_book(book_id: int) -> Response:
-    if book_service.delete(book_id) is None:
+    with get_connection() as conn:
+        cur = conn.execute("DELETE FROM books WHERE id = %s", (book_id,))
+    if cur.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Book not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS books (
+    id     SERIAL PRIMARY KEY,
+    title  VARCHAR(200) NOT NULL,
+    author VARCHAR(100) NOT NULL,
+    year   INTEGER NOT NULL CHECK (year >= 0)
+);

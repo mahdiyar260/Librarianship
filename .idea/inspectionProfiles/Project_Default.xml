@@ -1,0 +1,31 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="booktype" />
+          <option value="opencv-python" />
+          <option value="imageio-ffmpeg" />
+          <option value="openai" />
+          <option value="pyjwt" />
+          <option value="sqlalchemy" />
+          <option value="alembic" />
+          <option value="psycopg2-binary" />
+          <option value="pydantic" />
+          <option value="pydantic-settings" />
+          <option value="typer" />
+          <option value="apscheduler" />
+          <option value="tzdata" />
+          <option value="uliweb-alembic" />
+          <option value="rich" />
+          <option value="openpyxl" />
+          <option value="google-auth" />
+          <option value="google-auth-oauthlib" />
+          <option value="cryptography" />
+          <option value="pillow" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
